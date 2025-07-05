@@ -1,0 +1,34 @@
+#!/bin/sh
+
+set -e
+
+ echo "Starting pre-commit hook"
+
+# Function to calculate SHA-256 checksum
+calculate_checksum() {
+    sha256sum "$1" | awk '{ print $1 }'
+}
+
+# Find all modified .sql files
+for file in $(git diff --cached --name-only --diff-filter=ACM | grep '.sql$'); do
+    if [ -f "$file" ]; then
+        echo "Processing $file..."
+
+        # Calculate checksum
+        checksum=$(calculate_checksum "$file")
+
+        # Check if the file already contains a checksum
+        if grep -q "^-- Checksum: " "$file"; then
+            echo "Updating existing checksum in $file"
+            # Update the existing checksum
+            sed -i "s/^-- Checksum: .*/-- Checksum: $checksum/" "$file"
+        else
+            echo "Inserting new checksum in $file"
+            # Insert the checksum at the top of the file
+            echo -e "-- Checksum: $checksum\n$(cat $file)" > "$file"
+        fi
+
+        # Add the updated file back to the staging area
+        git add "$file"
+    fi
+done

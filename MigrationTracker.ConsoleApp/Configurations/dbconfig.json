@@ -1,0 +1,15 @@
+{
+  "Databases": {
+    "Db1": {
+      "ConnectionString": "Server=myServerAddress;Database=db1;User Id=myUsername;Password=myPassword;"
+    },
+    "Db2": {
+      "ConnectionString": "Server=myServerAddress;Database=db2;User Id=myUsername;Password=myPassword;"
+    }
+  },
+  "MigrationSettings": {
+    "MigrationDirectory": "Migrations",
+    "ScriptDirectory": "Scripts",
+    "DefaultDatabase": "Db1"
+  }
+}

@@ -1,0 +1,7 @@
+-- Tags: db1
+CREATE TABLE AuditLogs (
+    LogId INT PRIMARY KEY IDENTITY(1,1),
+    Action NVARCHAR(255) NOT NULL,
+    PerformedBy NVARCHAR(100) NOT NULL,
+    PerformedOn DATETIME DEFAULT GETDATE()
+);

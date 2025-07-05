@@ -1,0 +1,3 @@
+-- Tags: db1
+ALTER TABLE Users
+ALTER COLUMN Email NVARCHAR(320);
