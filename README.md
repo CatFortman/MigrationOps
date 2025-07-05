@@ -8,7 +8,7 @@ Inspired by tools like Redgate's SQL source control and Entity Framework's migra
 - **SQL Source Control**: Organize your SQL scripts (stored procedures, views, functions, and triggers) in dedicated folders.
 - **Automatic Checksum Calculation**: Inserts unique checksums into your SQL scripts to easily manage changes.
 - **Migration Management**: Easily handle database migrations with a structured approach, using timestamped filenames to ensure proper execution order.
-- **Git Integration**: Git hooks to automate checksum calculation.
+- **Git Integration**: Git hooks to automate checksum calculation and ensure valid script tags exist.
 
 ## Installation
 
@@ -37,8 +37,6 @@ To ensure that our custom Git hooks are correctly set up on your local environme
 
 3. Verify the Hook
 Make a change in the repository, stage it, and attempt to commit. The pre-commit hook should automatically run and insert/update the checksum in your SQL files.
-
-If the githook is not adding the checksum to the top of your sql files, please try testing with the following command: `chmod +x .git/hooks/pre-commit`
 
 ### Pre-commit Hook Compatibility
 
@@ -117,6 +115,7 @@ Migrations/20240805-001-CreateEntityTable.sql
 
 ### Running Migrations
 When you deploy the project, the migration scripts will be applied to the databases in the ``Tags`` comment. Tags should be included as a comment at the top of each SQL script.
+The githook runs validation logic to ensure the ``Tags`` comment is properly added to each sql file.
 
 Example:
 ```SQL
