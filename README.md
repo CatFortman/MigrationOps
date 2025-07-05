@@ -38,9 +38,7 @@ To ensure that our custom Git hooks are correctly set up on your local environme
 3. Verify the Hook
 Make a change in the repository, stage it, and attempt to commit. The pre-commit hook should automatically run and insert/update the checksum in your SQL files.
 
-If the githook is not adding the checksum to the top of your sql files, please try the following solutions:
-
-* In GitBash navigate to the repository directory and run the following command: `chmod +x .git/hooks/pre-commit`
+If the githook is not adding the checksum to the top of your sql files, please try testing with the following command: `chmod +x .git/hooks/pre-commit`
 
 ### Pre-commit Hook Compatibility
 
