@@ -1,5 +1,6 @@
 -- Checksum: 
 -- Tags: db1
+
 CREATE TABLE Users (
     UserId INT PRIMARY KEY IDENTITY(1,1),
     UserName NVARCHAR(100) NOT NULL,
