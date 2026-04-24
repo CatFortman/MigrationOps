@@ -1,7 +1,8 @@
 # MigrationTracker
 
-**MigrationTracker** is an open-source project designed to combine the principles of SQL source control and migration management. 
-Inspired by tools like Redgate's SQL source control and Entity Framework's migration feature, MigrationTracker helps you track and apply changes to your database schema efficiently and effectively.
+**MigrationTracker** is a database schema versioning and source control tool designed to bring structure and traceability to SQL changes.
+
+It combines concepts from Entity Framework migrations and SQL source control tools (such as Redgate SQL Source Control), enabling teams to manage database evolution through versioned scripts, checksum validation, and automated execution ordering.
 
 ## Features
 
