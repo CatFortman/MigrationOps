@@ -1,4 +1,4 @@
-﻿namespace TrackGateSql.Core.Models
+﻿namespace MigrationOps.Core.Models
 {
     public class MigrationScript
     {

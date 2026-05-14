@@ -1,4 +1,4 @@
-﻿using TrackGateSql.Core.MigrationFramework.Services;
+﻿using MigrationOps.Core.MigrationFramework.Services;
 
 class Program
 {

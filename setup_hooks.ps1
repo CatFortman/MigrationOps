@@ -2,7 +2,7 @@
 # This script sets up Git hooks by copying them from the GitHooks directory to the .git/hooks directory.
 
 # Define the source directory where your custom hooks are stored
-$sourceDir = "MigrationTracker.ConsoleApp\GitHooks"
+$sourceDir = "MigrationOps.ConsoleApp\GitHooks"
 
 # Define the target directory where Git hooks are stored in your repository
 $targetDir = ".git/hooks"

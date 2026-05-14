@@ -45,7 +45,7 @@
 		</None>
 	</ItemGroup>
 	<ItemGroup>
-    <ProjectReference Include="..\MigrationTracker.Core\MigrationTracker.Core.csproj" />
+    <ProjectReference Include="..\MigrationOps.Core\MigrationOps.Core.csproj" />
   </ItemGroup>
   <Import Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.Sql.UnitTesting.targets" Condition="$(VisualStudioVersion) != '15.0' And '$(SQLDBExtensionsRefPath)' != ''" />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.Sql.UnitTesting.targets" Condition="$(VisualStudioVersion) != '15.0' And '$(SQLDBExtensionsRefPath)' == ''" />

@@ -1,7 +1,8 @@
 ﻿using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using MigrationOps.Core.MigrationFramework.AppConstants;
 
-namespace TrackGateSql.Core.MigrationFramework.Services
+namespace MigrationOps.Core.MigrationFramework.Services
 {
     public class MigrationService
     {
@@ -132,7 +133,7 @@ namespace TrackGateSql.Core.MigrationFramework.Services
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                var command = new SqlCommand(AppConstants.SqlStatements.CreateMigrationHistoryTable, connection);
+                var command = new SqlCommand(SqlStatements.CreateMigrationHistoryTable, connection);
                 command.ExecuteNonQuery();
             }
         }

@@ -1,6 +1,6 @@
-# MigrationTracker
+# MigrationOps
 
-**MigrationTracker** is a database schema versioning and source control tool designed to bring structure and traceability to SQL changes.
+**MigrationOps** is a database schema versioning and source control tool designed to bring structure and traceability to SQL changes.
 
 It combines concepts from Entity Framework migrations and SQL source control tools (such as Redgate SQL Source Control), enabling teams to manage database updates through versioned scripts, checksum validation, and automated execution ordering.
 
@@ -61,7 +61,7 @@ calculate_checksum() {
 
 ### Configuration Setup
 
-**dbconfig.json** is used to configure the database connections and migration settings for MigrationTracker.
+**dbconfig.json** is used to configure the database connections and migration settings for MigrationOps.
 
 #### Example Structure:
 

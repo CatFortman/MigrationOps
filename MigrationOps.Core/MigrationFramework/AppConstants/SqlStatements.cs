@@ -1,4 +1,4 @@
-﻿namespace TrackGateSql.Core.MigrationFramework.AppConstants
+﻿namespace MigrationOps.Core.MigrationFramework.AppConstants
 {
     public static class SqlStatements
     {
