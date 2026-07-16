@@ -129,6 +129,23 @@ END
 
 ```
 
+#### Build and Run
+
+Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+
+Build the solution from the repository root:
+
+```
+dotnet build MigrationOps.sln
+```
+
+Run the console app from the `MigrationOps.ConsoleApp` directory, since `Configurations/dbconfig.json` and the `Migrations` folder are resolved relative to the working directory:
+
+```
+cd MigrationOps.ConsoleApp
+dotnet run
+```
+
 ## Contributing
 I welcome contributions! Please fork the repository and submit a pull request for any enhancements or bug fixes.
 
