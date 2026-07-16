@@ -1,0 +1,98 @@
+@page "/Databases/{name}"
+@model MigrationOps.Dashboard.Pages.Databases.DetailModel
+@{
+    ViewData["Title"] = Model.Overview.Name;
+}
+
+<div class="panel">
+    <h2 class="mono">@Model.Overview.Name</h2>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Migration</th>
+                <th>Status</th>
+                <th>Checksum</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var file in Model.Overview.FileStatuses)
+            {
+                <tr>
+                    <td class="mono">@file.FileName</td>
+                    <td>
+                        @if (file.ChecksumMissing)
+                        {
+                            <span class="status-badge status-pending">Draft (no checksum)</span>
+                        }
+                        else if (file.HasDrift)
+                        {
+                            <span class="status-badge status-drift">Drift detected</span>
+                        }
+                        else if (file.IsApplied)
+                        {
+                            <span class="status-badge status-success">Applied</span>
+                        }
+                        else
+                        {
+                            <span class="status-badge status-pending">Pending</span>
+                        }
+                    </td>
+                    @{
+                        string Shorten(string? checksum) => !string.IsNullOrEmpty(checksum) && checksum.Length > 8 ? checksum[..8] + "…" : checksum ?? "";
+                    }
+                    <td class="mono text-muted">
+                        @if (file.ChecksumMissing)
+                        {
+                            <span>&mdash;</span>
+                        }
+                        else if (file.HasDrift)
+                        {
+                            <span>recorded @Shorten(file.RecordedChecksum) &rarr; now @Shorten(file.CurrentChecksum)</span>
+                        }
+                        else
+                        {
+                            @Shorten(file.CurrentChecksum)
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="panel">
+    <h2>History</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Applied on</th>
+                <th>Migration</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var record in Model.Overview.History)
+            {
+                <tr>
+                    <td class="text-secondary mono">@record.AppliedOn.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="mono">@record.MigrationName</td>
+                    <td>
+                        @if (record.Success)
+                        {
+                            <span class="status-badge status-success">Success</span>
+                        }
+                        else
+                        {
+                            <span class="status-badge status-failed">Failed</span>
+                        }
+                    </td>
+                    <td class="text-muted">@(record.DurationMs.HasValue ? record.DurationMs + " ms" : "—")</td>
+                    <td class="error-text">@record.ErrorMessage</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

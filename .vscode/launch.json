@@ -1,0 +1,39 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": ".NET: Launch Dashboard",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build-dashboard",
+            "program": "${workspaceFolder}/MigrationOps.Dashboard/bin/Debug/net8.0/MigrationOps.Dashboard.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/MigrationOps.Dashboard",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:5280"
+            },
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+            }
+        },
+        {
+            "name": "Launch Chrome",
+            "request": "launch",
+            "type": "chrome",
+            "url": "http://localhost:5280",
+            "webRoot": "${workspaceFolder}/MigrationOps.Dashboard/wwwroot"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Dashboard (.NET + Chrome DevTools)",
+            "configurations": [".NET: Launch Dashboard", "Launch Chrome"]
+        }
+    ]
+}
