@@ -7,12 +7,12 @@
   color-scheme: dark;
 
   --surface-1: #1a1a19;
-  --page-plane: #0d0d0d;
+  --page-plane: #0e0b0d;
   --surface-raised: #202020;
   --text-primary: #ffffff;
   --text-secondary: #c3c2b7;
   --text-muted: #898781;
-  --gridline: #2c2c2a;
+  --gridline: #372932ab;
   --border: rgba(255, 255, 255, 0.10);
   --accent: #3987e5;
 
@@ -21,6 +21,8 @@
   --status-serious: #ec835a;
   --status-critical: #e66767;
 
+  --brand-ops: #0ca30c;
+
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Cascadia Mono", monospace;
 }
@@ -28,20 +30,22 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --surface-1: #fcfcfb;
-  --page-plane: #f9f9f7;
+  --surface-1: #f2f1ed;
+  --page-plane: #dedcd6;
   --surface-raised: #ffffff;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;
-  --text-muted: #898781;
-  --gridline: #e1e0d9;
-  --border: rgba(11, 11, 11, 0.10);
+  --text-muted: #726f68;
+  --gridline: #c7c5bd;
+  --border: rgba(11, 11, 11, 0.14);
   --accent: #2a78d6;
 
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #d03b3b;
+
+  --brand-ops: #006300;
 }
 
 * { box-sizing: border-box; }
@@ -73,13 +77,17 @@ a { color: var(--accent); }
 }
 
 .app-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 20px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    width: 100%;
+    margin-bottom: 24px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
 }
 
 .app-header h1 {
@@ -88,9 +96,9 @@ a { color: var(--accent); }
   letter-spacing: 0.02em;
 }
 
-.app-header .brand-mark {
+.brand-ops {
   font-family: var(--font-mono);
-  color: var(--accent);
+  color: var(--brand-ops);
   margin-right: 4px;
 }
 
