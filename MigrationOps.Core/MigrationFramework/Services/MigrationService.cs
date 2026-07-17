@@ -13,9 +13,15 @@ namespace MigrationOps.Core.MigrationFramework.Services
 
         public MigrationService()
         {
+            // Layering, lowest to highest precedence:
+            //   1. dbconfig.json          - committed template, no real secrets
+            //   2. dbconfig.local.json    - gitignored, per-developer local overrides
+            //   3. environment variables  - e.g. Databases__Db1__ConnectionString, used in CI/CD
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("Configurations/dbconfig.json", optional: true, reloadOnChange: true);
+                .AddJsonFile("Configurations/dbconfig.json", optional: true, reloadOnChange: true)
+                .AddJsonFile("Configurations/dbconfig.local.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables();
 
             _configuration = builder.Build();
 
@@ -155,19 +161,25 @@ namespace MigrationOps.Core.MigrationFramework.Services
                 {
                     connection.Open();
 
-                    using (var command = new SqlCommand(script, connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
                         try
                         {
-                            command.ExecuteNonQuery();
-                            Console.WriteLine($"Applied {scriptName} to {currentDb} on the specified server");
+                            using (var command = new SqlCommand(script, connection, transaction))
+                            {
+                                command.ExecuteNonQuery();
+                            }
 
-                            RecordApplied(connectionString, scriptName, checksum, kind);
+                            RecordApplied(connection, transaction, scriptName, checksum, kind);
+
+                            transaction.Commit();
+                            Console.WriteLine($"Applied {scriptName} to {currentDb} on the specified server");
                         }
                         catch (Exception ex)
                         {
+                            transaction.Rollback();
                             throw new InvalidOperationException(
-                                $"Failed to apply {kindLabel} '{scriptName}' to database '{currentDb}': {ex.Message}", ex);
+                                $"Failed to apply {kindLabel} '{scriptName}' to database '{currentDb}' (rolled back): {ex.Message}", ex);
                         }
                     }
                 }
@@ -205,15 +217,13 @@ namespace MigrationOps.Core.MigrationFramework.Services
             }
         }
 
-        private void RecordApplied(string connectionString, string scriptName, string checksum, ScriptKind kind)
+        private void RecordApplied(SqlConnection connection, SqlTransaction transaction, string scriptName, string checksum, ScriptKind kind)
         {
             var sql = kind == ScriptKind.Migration ? SqlStatements.InsertMigrationRecord : SqlStatements.InsertScriptRecord;
             var paramName = kind == ScriptKind.Migration ? "@MigrationName" : "@ScriptName";
 
-            using (var connection = new SqlConnection(connectionString))
+            using (var command = new SqlCommand(sql, connection, transaction))
             {
-                connection.Open();
-                var command = new SqlCommand(sql, connection);
                 command.Parameters.AddWithValue(paramName, scriptName);
                 command.Parameters.AddWithValue("@Checksum", checksum);
                 command.ExecuteNonQuery();

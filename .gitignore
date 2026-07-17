@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# MigrationOps local secrets overlay - never commit real connection strings
+**/Configurations/dbconfig.local.json
+
 # User-specific files
 *.rsuser
 *.suo
