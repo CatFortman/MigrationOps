@@ -61,7 +61,7 @@ calculate_checksum() {
 
 ### Configuration Setup
 
-**dbconfig.json** is used to configure the database connections and migration settings for MigrationOps.
+**dbconfig.json** is used to configure the database connections and migration settings for MigrationOps. It is committed to source control, so it should never contain real credentials — only a template/example shape.
 
 #### Example Structure:
 
@@ -82,6 +82,26 @@ calculate_checksum() {
   }
 }
 ```
+
+#### Supplying real connection strings
+
+Real connection strings should never be committed. Configuration is layered, from lowest to highest precedence:
+
+1. **`Configurations/dbconfig.json`** — the committed template above.
+2. **`Configurations/dbconfig.local.json`** — an optional, git-ignored file with the same shape, for a developer's own local secrets. Only include the keys you want to override:
+   ```json
+   {
+     "Databases": {
+       "Db1": { "ConnectionString": "Server=.;Database=db1;Trusted_Connection=True;TrustServerCertificate=True;" }
+     }
+   }
+   ```
+3. **Environment variables** — recommended for CI/CD pipelines and shared environments. .NET's double-underscore convention maps to the same nested keys, e.g.:
+   ```bash
+   Databases__Db1__ConnectionString="Server=...;Database=db1;User Id=...;Password=...;"
+   ```
+
+Each layer overrides the one before it, so a value set as an environment variable always wins over the checked-in template.
 
 ### Organizing SQL Scripts
 Place your SQL scripts into the appropriate folders:
