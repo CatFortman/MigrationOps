@@ -2,11 +2,23 @@
 
 class Program
 {
-    static void Main(string[] args)
+    static int Main(string[] args)
     {
-        var migrationsDirectory = "Migrations"; // Adjust the path as needed.
-
         MigrationService migrationService = new MigrationService();
-        migrationService.ApplyMigrations(migrationsDirectory);
+
+        try
+        {
+            // Database objects (functions, views, stored procedures, triggers) are applied before
+            // migrations so that migration scripts can rely on the latest object definitions.
+            migrationService.ApplyDatabaseObjectScripts(migrationService.GetScriptDirectory());
+            migrationService.ApplyMigrations(migrationService.GetMigrationDirectory());
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"MigrationOps run halted: {ex.Message}");
+            return 1;
+        }
+
+        return 0;
     }
 }

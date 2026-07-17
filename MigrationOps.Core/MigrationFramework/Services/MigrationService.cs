@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using MigrationOps.Core.MigrationFramework.AppConstants;
 
@@ -6,6 +6,8 @@ namespace MigrationOps.Core.MigrationFramework.Services
 {
     public class MigrationService
     {
+        private static readonly string[] DatabaseObjectFolders = { "Functions", "Views", "StoredProcedures", "Triggers" };
+
         private readonly string _connectionStringTemplate;
         private readonly IConfiguration _configuration;
 
@@ -28,6 +30,11 @@ namespace MigrationOps.Core.MigrationFramework.Services
         public string GetMigrationDirectory()
         {
             return _configuration["MigrationSettings:MigrationDirectory"];
+        }
+
+        public string GetScriptDirectory()
+        {
+            return _configuration["MigrationSettings:ScriptDirectory"];
         }
 
         public static List<string> ParseTagsFromFile(string filePath)
@@ -58,6 +65,25 @@ namespace MigrationOps.Core.MigrationFramework.Services
             return tags.Contains(currentDb, StringComparer.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Applies database object scripts (functions, views, stored procedures, triggers) from the
+        /// configured script directory. Runs before migrations so that migrations can rely on the
+        /// latest object definitions.
+        /// </summary>
+        public void ApplyDatabaseObjectScripts(string scriptsRootDirectory)
+        {
+            var files = DatabaseObjectFolders
+                .Select(folder => Path.Combine(scriptsRootDirectory, folder))
+                .Where(Directory.Exists)
+                .SelectMany(folder => Directory.GetFiles(folder, "*.sql").OrderBy(f => Path.GetFileName(f)))
+                .ToList();
+
+            foreach (var file in files)
+            {
+                ApplyScriptFile(file, ScriptKind.DatabaseObject);
+            }
+        }
+
         public void ApplyMigrations(string directory)
         {
             var files = Directory.GetFiles(directory, "*.sql")
@@ -66,44 +92,82 @@ namespace MigrationOps.Core.MigrationFramework.Services
 
             foreach (var file in files)
             {
-                var tags = ParseTagsFromFile(file);
+                ApplyScriptFile(file, ScriptKind.Migration);
+            }
+        }
 
-                foreach (var tag in tags)
+        private enum ScriptKind
+        {
+            Migration,
+            DatabaseObject
+        }
+
+        private void ApplyScriptFile(string file, ScriptKind kind)
+        {
+            string scriptName = Path.GetFileName(file);
+            string kindLabel = kind == ScriptKind.Migration ? "migration" : "database object script";
+
+            List<string> tags;
+            string checksum;
+            string script = File.ReadAllText(file);
+
+            try
+            {
+                tags = ParseTagsFromFile(file);
+                checksum = ExtractChecksumFromScript(script);
+
+                if (kind == ScriptKind.DatabaseObject)
                 {
-                    var currentDb = DetermineDatabaseFromTags(new List<string> { tag });
-                    string connectionString = GetConnectionString(currentDb);
+                    EnsureCreateOrAlterStatement(script, scriptName);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to process {kindLabel} '{scriptName}': {ex.Message}", ex);
+            }
 
-                    EnsureMigrationHistoryTable(connectionString);
+            foreach (var tag in tags)
+            {
+                string currentDb;
+                string connectionString;
 
-                    string migrationName = Path.GetFileName(file);
-                    string script = File.ReadAllText(file);
+                try
+                {
+                    currentDb = DetermineDatabaseFromTags(new List<string> { tag });
+                    connectionString = GetConnectionString(currentDb);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Failed to resolve target database for {kindLabel} '{scriptName}' (tag '{tag}'): {ex.Message}", ex);
+                }
 
-                    // Extract the checksum from the script.
-                    string checksum = ExtractChecksumFromScript(script);
+                EnsureHistoryTable(connectionString, kind);
 
-                    if (HasMigrationBeenApplied(connectionString, migrationName, checksum))
+                if (HasBeenApplied(connectionString, scriptName, checksum, kind))
+                {
+                    Console.WriteLine($"Skipping {scriptName} as it has already been applied to {currentDb}");
+                    continue;
+                }
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    using (var command = new SqlCommand(script, connection))
                     {
-                        Console.WriteLine($"Skipping {migrationName} as it has already been applied to {currentDb}");
-                        continue;
-                    }
-
-                    using (var connection = new SqlConnection(connectionString))
-                    {
-                        connection.Open();
-
-                        using (var command = new SqlCommand(script, connection))
+                        try
                         {
-                            try
-                            {
-                                command.ExecuteNonQuery();
-                                Console.WriteLine($"Applied {migrationName} to {currentDb} on the specified server");
+                            command.ExecuteNonQuery();
+                            Console.WriteLine($"Applied {scriptName} to {currentDb} on the specified server");
 
-                                RecordMigration(connectionString, migrationName, checksum);
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Error applying {migrationName} to {currentDb}: {ex.Message}");
-                            }
+                            RecordApplied(connectionString, scriptName, checksum, kind);
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new InvalidOperationException(
+                                $"Failed to apply {kindLabel} '{scriptName}' to database '{currentDb}': {ex.Message}", ex);
                         }
                     }
                 }
@@ -127,36 +191,45 @@ namespace MigrationOps.Core.MigrationFramework.Services
             throw new InvalidOperationException("No valid database found in tags.");
         }
 
-
-        public void EnsureMigrationHistoryTable(string connectionString)
+        private void EnsureHistoryTable(string connectionString, ScriptKind kind)
         {
+            var sql = kind == ScriptKind.Migration
+                ? SqlStatements.CreateMigrationHistoryTable
+                : SqlStatements.CreateScriptHistoryTable;
+
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                var command = new SqlCommand(SqlStatements.CreateMigrationHistoryTable, connection);
+                var command = new SqlCommand(sql, connection);
                 command.ExecuteNonQuery();
             }
         }
 
-        public void RecordMigration(string connectionString, string migrationName, string checksum)
+        private void RecordApplied(string connectionString, string scriptName, string checksum, ScriptKind kind)
         {
+            var sql = kind == ScriptKind.Migration ? SqlStatements.InsertMigrationRecord : SqlStatements.InsertScriptRecord;
+            var paramName = kind == ScriptKind.Migration ? "@MigrationName" : "@ScriptName";
+
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                var command = new SqlCommand(AppConstants.SqlStatements.InsertMigrationRecord, connection);
-                command.Parameters.AddWithValue("@MigrationName", migrationName);
+                var command = new SqlCommand(sql, connection);
+                command.Parameters.AddWithValue(paramName, scriptName);
                 command.Parameters.AddWithValue("@Checksum", checksum);
                 command.ExecuteNonQuery();
             }
         }
 
-        public bool HasMigrationBeenApplied(string connectionString, string migrationName, string checksum)
+        private bool HasBeenApplied(string connectionString, string scriptName, string checksum, ScriptKind kind)
         {
+            var sql = kind == ScriptKind.Migration ? SqlStatements.CheckMigrationApplied : SqlStatements.CheckScriptApplied;
+            var paramName = kind == ScriptKind.Migration ? "@MigrationName" : "@ScriptName";
+
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                var command = new SqlCommand(AppConstants.SqlStatements.CheckMigrationApplied, connection);
-                command.Parameters.AddWithValue("@MigrationName", migrationName);
+                var command = new SqlCommand(sql, connection);
+                command.Parameters.AddWithValue(paramName, scriptName);
                 command.Parameters.AddWithValue("@Checksum", checksum);
                 return (int)command.ExecuteScalar() > 0;
             }
@@ -164,7 +237,7 @@ namespace MigrationOps.Core.MigrationFramework.Services
 
         public string ExtractChecksumFromScript(string script)
         {
-            var lines = script.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            var lines = script.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 
             foreach (var line in lines)
             {
@@ -177,7 +250,34 @@ namespace MigrationOps.Core.MigrationFramework.Services
             throw new InvalidOperationException("No checksum found in the script.");
         }
 
+        /// <summary>
+        /// Database object scripts must be idempotent, since they are re-run on every deploy.
+        /// This enforces that the first executable statement (after the checksum/tags header
+        /// comments) is a CREATE OR ALTER, rather than a plain CREATE that fails on redeploy.
+        /// </summary>
+        private static void EnsureCreateOrAlterStatement(string script, string scriptName)
+        {
+            var lines = script.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 
+            foreach (var line in lines)
+            {
+                var trimmed = line.Trim();
 
+                if (trimmed.Length == 0 || trimmed.StartsWith("--"))
+                {
+                    continue;
+                }
+
+                if (!trimmed.StartsWith("CREATE OR ALTER", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"Database object script '{scriptName}' must begin with a 'CREATE OR ALTER' statement.");
+                }
+
+                return;
+            }
+
+            throw new InvalidOperationException($"Database object script '{scriptName}' is empty or contains no executable statement.");
+        }
     }
 }
