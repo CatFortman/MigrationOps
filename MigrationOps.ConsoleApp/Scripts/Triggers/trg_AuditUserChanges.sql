@@ -1,0 +1,12 @@
+﻿-- Checksum: E72AB0F05D4E1F4BEB9A76D1E83EF7FACFF53C98D06F0D13F6CCF54B28506124
+-- Tags: db1
+CREATE OR ALTER TRIGGER dbo.trg_AuditUserChanges
+ON dbo.Users
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO dbo.AuditLogs (Action, PerformedBy, PerformedOn)
+    SELECT 'Users table changed', SYSTEM_USER, GETDATE();
+END
