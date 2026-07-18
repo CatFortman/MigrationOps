@@ -1,0 +1,62 @@
+@page
+@model MigrationOps.Dashboard.Pages.HistoryModel
+@{
+    ViewData["Title"] = "History";
+}
+
+<div class="panel">
+    <h2>History</h2>
+
+    <form method="get" class="filter-bar">
+        <select name="Database">
+            <option value="">All databases</option>
+            @foreach (var db in Model.DatabaseNames)
+            {
+                <option value="@db" selected="@(string.Equals(db, Model.Database, StringComparison.OrdinalIgnoreCase))">@db</option>
+            }
+        </select>
+        <select name="Status">
+            <option value="">All statuses</option>
+            <option value="success" selected="@(Model.Status == "success")">Success</option>
+            <option value="failed" selected="@(Model.Status == "failed")">Failed</option>
+        </select>
+        <input type="date" name="From" value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+        <input type="date" name="To" value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+        <button type="submit" class="theme-toggle">Filter</button>
+    </form>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Applied on</th>
+                <th>Database</th>
+                <th>Migration</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                <tr>
+                    <td class="text-secondary mono">@row.Record.AppliedOn.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="mono">@row.Database</td>
+                    <td class="mono">@row.Record.MigrationName</td>
+                    <td>
+                        @if (row.Record.Success)
+                        {
+                            <span class="status-badge status-success">Success</span>
+                        }
+                        else
+                        {
+                            <span class="status-badge status-failed">Failed</span>
+                        }
+                    </td>
+                    <td class="text-muted">@(row.Record.DurationMs.HasValue ? row.Record.DurationMs + " ms" : "—")</td>
+                    <td class="error-text">@row.Record.ErrorMessage</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

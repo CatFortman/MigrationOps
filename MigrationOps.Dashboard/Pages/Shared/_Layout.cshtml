@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] != null ? ViewData["Title"] + " · MigrationOps" : "MigrationOps")</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <header class="app-header">
+            <h1><span class="brand-ops">&gt;_</span>Migration<span class="brand-ops">Ops</span></h1>
+            <nav class="app-nav">
+                <a href="/">Overview</a>
+                <a href="/History">History</a>
+                <button type="button" class="theme-toggle" id="theme-toggle">light</button>
+                <form method="post" action="/Login?handler=Logout" style="margin:0;">
+                    <button type="submit" class="theme-toggle">Log out</button>
+                </form>
+            </nav>
+        </header>
+        <div class="app-shell">
+            @RenderBody()
+        </div>
+    }
+    else
+    {
+        @RenderBody()
+    }
+    <script>
+            (function () {
+                var root = document.documentElement;
+                var stored = localStorage.getItem('migrationops-theme');
+                if (stored) { root.setAttribute('data-theme', stored); }
+
+                var toggle = document.getElementById('theme-toggle');
+                if (toggle) {
+                    var sync = function () {
+                        var isLight = root.getAttribute('data-theme') === 'light';
+                        toggle.textContent = isLight ? 'dark' : 'light';
+                    };
+                    sync();
+                    toggle.addEventListener('click', function () {
+                        var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+                        root.setAttribute('data-theme', next);
+                        localStorage.setItem('migrationops-theme', next);
+                        sync();
+                    });
+                }
+            })();
+    </script>
+</body>
+
+</html>
