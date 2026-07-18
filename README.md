@@ -168,6 +168,46 @@ cd MigrationOps.ConsoleApp
 dotnet run
 ```
 
+## Dashboard
+
+**MigrationOps.Dashboard** is a Razor Pages web app that provides a read-only view of migration state. It reuses the same `MigrationOps.Core` logic as the console runner, so it shows the exact same per-database picture: applied migration history, pending files, and checksum drift.
+
+### Setup
+
+1. **Create the dashboard's database.** The dashboard stores its login accounts in a dedicated database, separate from the migration-target databases. Create an empty database on your SQL Server instance (e.g. `MigrationOpsDashboard`):
+
+   ```sql
+   CREATE DATABASE MigrationOpsDashboard;
+   ```
+
+   On first use the app creates its `__DashboardUsers` table automatically, but the database itself must already exist.
+
+2. **Configure the connection string.** `MigrationOps.Dashboard/appsettings.json` is committed with a placeholder `DashboardStore:ConnectionString`. Don't put real credentials in it — override it with a git-ignored `appsettings.Development.json` or an environment variable:
+
+   ```bash
+   DashboardStore__ConnectionString="Server=.;Database=MigrationOpsDashboard;Trusted_Connection=True;TrustServerCertificate=True;"
+   ```
+
+3. **Check the shared config paths.** `appsettings.json` points at the console app's files via relative paths (`DbConfigPath`, `MigrationsRoot`), which resolve correctly when you run from the `MigrationOps.Dashboard` directory. The dashboard reads `dbconfig.json` through the same layering as the console app, so connection strings in `dbconfig.local.json` or environment variables are picked up here too.
+
+### Running
+
+```
+cd MigrationOps.Dashboard
+dotnet run
+```
+
+The app listens on `http://localhost:5280`.
+
+### First-run account setup
+
+Every page requires login. On a fresh install:
+
+1. Visit `/Register` to create the first account (minimum 8-character password, stored BCrypt-hashed).
+2. Log in at `/Login`.
+
+Registration is a one-time bootstrap, not open signup: once any account exists, `/Register` permanently redirects to `/Login`. To add another user later, insert a row into `__DashboardUsers` manually, or clear the table to re-open registration.
+
 ## Contributing
 I welcome contributions! Please fork the repository and submit a pull request for any enhancements or bug fixes.
 
