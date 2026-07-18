@@ -13,6 +13,19 @@ Requires the .NET 8 SDK.
 - Build (repo root): `dotnet build MigrationOps.sln`
 - Run: `cd MigrationOps.ConsoleApp && dotnet run`
 
+Console app CLI:
+
+- `dotnet run -- apply [--db <name>]` — apply object scripts + migrations
+  (optionally to one configured database only).
+- `dotnet run -- dry-run [--db <name>] [--verify]` — read-only preview: per
+  file, reports already applied / would apply / CHANGED (edited applied
+  migration) / validation errors, never halting early. `--verify` additionally
+  executes pending scripts in one transaction per database and always rolls
+  back. Exit code 0 only with no CHANGED, validation-error, or verify-failed
+  entries.
+- No args: interactive menu (choose action + target DB). If stdin is
+  redirected (CI), it performs a full apply exactly like the old behavior.
+
 Always run from `MigrationOps.ConsoleApp/`. `Configurations/dbconfig.json` and
 the `Migrations` folder are resolved relative to the working directory, so
 `dotnet run --project` from the repo root silently loads no configuration.
@@ -40,7 +53,7 @@ the `Migrations` folder are resolved relative to the working directory, so
 - Never edit a migration that has already been applied. Applied-state is
   matched on filename AND checksum, so editing the file changes its checksum
   and the runner re-executes it against the database. Fixes go in a new
-  migration.
+  migration. `dry-run` reports such files as CHANGED and exits 1.
 - Reusable objects (procs, views, functions, triggers) go under `Scripts/`
   using `CREATE OR ALTER`, not in `Migrations/`.
 - To create a new migration, use the `/new-migration` skill.
