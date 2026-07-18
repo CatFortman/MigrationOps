@@ -1,0 +1,10 @@
+﻿-- Checksum: 29A6AB849DB1DB62F2CEA0BC28B365683F36273BAEB27ACA29014E4A9742EC19
+-- Tags: db1
+CREATE OR ALTER PROCEDURE dbo.usp_GetUserByEmail
+    @Email NVARCHAR(255)
+AS
+BEGIN
+    SELECT UserId, UserName, Email, CreatedOn
+    FROM dbo.Users
+    WHERE Email = @Email;
+END

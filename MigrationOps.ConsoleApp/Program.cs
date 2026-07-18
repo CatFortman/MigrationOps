@@ -2,11 +2,26 @@
 
 class Program
 {
-    static void Main(string[] args)
+    static int Main(string[] args)
     {
-        var migrationsDirectory = "Migrations"; // Adjust the path as needed.
-
         MigrationService migrationService = new MigrationService();
-        migrationService.ApplyMigrations(migrationsDirectory);
+
+        try
+        {
+            // Database objects (functions, views, stored procedures, triggers) are applied before
+            // migrations so that migration scripts can rely on the latest object definitions.
+            // Object scripts that fail because they depend on schema a pending migration creates
+            // are deferred and retried after migrations; a retry failure halts the run.
+            var deferred = migrationService.ApplyDatabaseObjectScripts(migrationService.GetScriptDirectory());
+            migrationService.ApplyMigrations(migrationService.GetMigrationDirectory());
+            migrationService.RetryDeferredScripts(deferred);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"MigrationOps run halted: {ex.Message}");
+            return 1;
+        }
+
+        return 0;
     }
 }
