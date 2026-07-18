@@ -138,6 +138,8 @@ Migrations/20240805-001-CreateEntityTable.sql
 When you deploy the project, the migration scripts will be applied to the databases in the ``Tags`` comment. Tags should be included as a comment at the top of each SQL script.
 The githook runs validation logic to ensure the ``Tags`` comment is properly added to each sql file.
 
+Database object scripts are applied before migrations. An object script that fails because it depends on schema a pending migration creates (for example, a view over a table that doesn't exist yet) is deferred and retried automatically after migrations run — so a single deploy works even against a brand-new database. If a script still fails on the retry, the run halts with the script name and nothing further is applied.
+
 Example:
 ```SQL
 -- Tags: db1, staging
