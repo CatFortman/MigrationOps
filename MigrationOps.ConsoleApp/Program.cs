@@ -10,8 +10,11 @@ class Program
         {
             // Database objects (functions, views, stored procedures, triggers) are applied before
             // migrations so that migration scripts can rely on the latest object definitions.
-            migrationService.ApplyDatabaseObjectScripts(migrationService.GetScriptDirectory());
+            // Object scripts that fail because they depend on schema a pending migration creates
+            // are deferred and retried after migrations; a retry failure halts the run.
+            var deferred = migrationService.ApplyDatabaseObjectScripts(migrationService.GetScriptDirectory());
             migrationService.ApplyMigrations(migrationService.GetMigrationDirectory());
+            migrationService.RetryDeferredScripts(deferred);
         }
         catch (Exception ex)
         {

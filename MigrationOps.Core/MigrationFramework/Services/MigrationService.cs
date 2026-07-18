@@ -75,8 +75,14 @@ namespace MigrationOps.Core.MigrationFramework.Services
         /// Applies database object scripts (functions, views, stored procedures, triggers) from the
         /// configured script directory. Runs before migrations so that migrations can rely on the
         /// latest object definitions.
+        ///
+        /// A script whose SQL fails here (e.g. a view referencing a table a pending migration
+        /// creates) is deferred rather than fatal — the caller retries the returned files with
+        /// <see cref="RetryDeferredScripts"/> after migrations run. Validation failures (missing
+        /// checksum/tags, no CREATE OR ALTER) still throw immediately, since a retry cannot fix them.
         /// </summary>
-        public void ApplyDatabaseObjectScripts(string scriptsRootDirectory)
+        /// <returns>The scripts that failed to apply and should be retried after migrations.</returns>
+        public List<string> ApplyDatabaseObjectScripts(string scriptsRootDirectory)
         {
             var files = DatabaseObjectFolders
                 .Select(folder => Path.Combine(scriptsRootDirectory, folder))
@@ -84,7 +90,26 @@ namespace MigrationOps.Core.MigrationFramework.Services
                 .SelectMany(folder => Directory.GetFiles(folder, "*.sql").OrderBy(f => Path.GetFileName(f)))
                 .ToList();
 
+            var deferred = new List<string>();
+
             foreach (var file in files)
+            {
+                if (!ApplyScriptFile(file, ScriptKind.DatabaseObject, deferSqlFailures: true))
+                {
+                    deferred.Add(file);
+                }
+            }
+
+            return deferred;
+        }
+
+        /// <summary>
+        /// Retries database object scripts deferred by <see cref="ApplyDatabaseObjectScripts"/>.
+        /// By this point migrations have run, so any remaining failure is a real error and throws.
+        /// </summary>
+        public void RetryDeferredScripts(List<string> deferredFiles)
+        {
+            foreach (var file in deferredFiles)
             {
                 ApplyScriptFile(file, ScriptKind.DatabaseObject);
             }
@@ -108,7 +133,7 @@ namespace MigrationOps.Core.MigrationFramework.Services
             DatabaseObject
         }
 
-        private void ApplyScriptFile(string file, ScriptKind kind)
+        private bool ApplyScriptFile(string file, ScriptKind kind, bool deferSqlFailures = false)
         {
             string scriptName = Path.GetFileName(file);
             string kindLabel = kind == ScriptKind.Migration ? "migration" : "database object script";
@@ -178,12 +203,22 @@ namespace MigrationOps.Core.MigrationFramework.Services
                         catch (Exception ex)
                         {
                             transaction.Rollback();
+
+                            if (deferSqlFailures)
+                            {
+                                Console.WriteLine(
+                                    $"Deferring {scriptName} on {currentDb} (will retry after migrations): {ex.Message}");
+                                return false;
+                            }
+
                             throw new InvalidOperationException(
                                 $"Failed to apply {kindLabel} '{scriptName}' to database '{currentDb}' (rolled back): {ex.Message}", ex);
                         }
                     }
                 }
             }
+
+            return true;
         }
 
         public string DetermineDatabaseFromTags(List<string> tags)
