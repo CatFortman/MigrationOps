@@ -11,5 +11,9 @@
     "MigrationDirectory": "Migrations",
     "ScriptDirectory": "Scripts",
     "DefaultDatabase": "Db1"
+  },
+  "AlertSettings": {
+    "Enabled": false,
+    "WebhookUrl": ""
   }
 }

@@ -1,0 +1,90 @@
+@page "/"
+@model MigrationOps.Dashboard.Pages.IndexModel
+@{
+    ViewData["Title"] = "Overview";
+}
+
+<div class="tile-grid">
+    <div class="tile">
+        <div class="tile-label">Databases tracked</div>
+        <div class="tile-value">@Model.Overviews.Count</div>
+    </div>
+    <div class="tile tile-good">
+        <div class="tile-label">Applied migrations</div>
+        <div class="tile-value">@Model.TotalApplied</div>
+    </div>
+    <div class="tile tile-critical">
+        <div class="tile-label">Failures (last 7 days)</div>
+        <div class="tile-value">@Model.RecentFailures</div>
+    </div>
+    <div class="tile tile-warning">
+        <div class="tile-label">Pending migrations</div>
+        <div class="tile-value">@Model.TotalPending</div>
+    </div>
+    <div class="tile tile-warning">
+        <div class="tile-label">Checksum drift</div>
+        <div class="tile-value">@Model.TotalDrift</div>
+    </div>
+</div>
+
+<div class="panel">
+    <h2>Databases</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Database</th>
+                <th>Applied</th>
+                <th>Failed</th>
+                <th>Pending</th>
+                <th>Drift</th>
+                <th>Last applied</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var overview in Model.Overviews)
+            {
+                var lastApplied = overview.History.Select(h => (DateTime?)h.AppliedOn).Max();
+                var failedCount = overview.History.Count(h => !h.Success);
+                var pendingCount = overview.FileStatuses.Count(f => !f.IsApplied);
+                var driftCount = overview.FileStatuses.Count(f => f.HasDrift);
+                <tr>
+                    <td class="mono">@overview.Name</td>
+                    <td>@overview.History.Count(h => h.Success)</td>
+                    <td>
+                        @if (failedCount > 0)
+                        {
+                            <span class="status-badge status-failed">@failedCount failed</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">0</span>
+                        }
+                    </td>
+                    <td>
+                        @if (pendingCount > 0)
+                        {
+                            <span class="status-badge status-pending">@pendingCount pending</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">0</span>
+                        }
+                    </td>
+                    <td>
+                        @if (driftCount > 0)
+                        {
+                            <span class="status-badge status-drift">@driftCount drift</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">0</span>
+                        }
+                    </td>
+                    <td class="text-secondary">@(lastApplied?.ToString("yyyy-MM-dd HH:mm") ?? "never")</td>
+                    <td><a href="/Databases/@overview.Name">View</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

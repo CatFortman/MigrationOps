@@ -1,8 +1,10 @@
 # MigrationOps
 
 SQL Server schema versioning tool. Migrations are plain .sql files executed in
-filename order by the ConsoleApp. Solution has two projects:
-`MigrationOps.ConsoleApp` (runner) and `MigrationOps.Core` (framework).
+filename order by the ConsoleApp. Solution has three projects:
+`MigrationOps.ConsoleApp` (runner), `MigrationOps.Core` (framework), and
+`MigrationOps.Dashboard` (read-only Razor Pages web UI over the same Core
+logic).
 
 ## Build and run
 
@@ -14,6 +16,14 @@ Requires the .NET 8 SDK.
 Always run from `MigrationOps.ConsoleApp/`. `Configurations/dbconfig.json` and
 the `Migrations` folder are resolved relative to the working directory, so
 `dotnet run --project` from the repo root silently loads no configuration.
+
+- Dashboard: `cd MigrationOps.Dashboard && dotnet run` (listens on
+  `http://localhost:5280`). Also working-directory-sensitive: its
+  `appsettings.json` points at the ConsoleApp's `dbconfig.json` and
+  `Migrations` folder via relative paths. Requires a pre-created dashboard
+  database (`DashboardStore:ConnectionString`) for login accounts; the app
+  creates its `__DashboardUsers` table but never the database itself. First
+  account is bootstrapped at `/Register`, which closes once any user exists.
 
 ## Migration files
 

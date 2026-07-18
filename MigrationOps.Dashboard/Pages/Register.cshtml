@@ -1,0 +1,32 @@
+@page
+@model MigrationOps.Dashboard.Pages.RegisterModel
+@{
+    ViewData["Title"] = "First-run setup";
+}
+<div class="auth-shell">
+    <div class="auth-card">
+        <h1><span class="mono text-secondary">&gt;_</span> Migration<span class="brand-ops">Ops</span></h1>
+        <p class="subtitle">No admin account exists yet — create the first one to finish setup.</p>
+
+        @if (Model.Error != null)
+        {
+            <div class="validation-summary">@Model.Error</div>
+        }
+
+        <form method="post">
+            <div class="field">
+                <label for="Username">Username</label>
+                <input type="text" id="Username" name="Username" autocomplete="username" required />
+            </div>
+            <div class="field">
+                <label for="Password">Password</label>
+                <input type="password" id="Password" name="Password" autocomplete="new-password" minlength="8" required />
+            </div>
+            <div class="field">
+                <label for="ConfirmPassword">Confirm password</label>
+                <input type="password" id="ConfirmPassword" name="ConfirmPassword" autocomplete="new-password" minlength="8" required />
+            </div>
+            <button type="submit" class="btn-primary">Create account</button>
+        </form>
+    </div>
+</div>
