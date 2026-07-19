@@ -12,10 +12,11 @@
     @if (User.Identity?.IsAuthenticated == true)
     {
         <header class="app-header">
-            <h1><span class="brand-ops">&gt;_</span>Migration<span class="brand-ops">Ops</span></h1>
+            <h1><span class="brand-chevron">&gt;_</span>Migration<span class="brand-ops">Ops</span></h1>
             <nav class="app-nav">
                 <a href="/">Overview</a>
                 <a href="/History">History</a>
+                <a href="/DryRun">Dry-run</a>
                 <button type="button" class="theme-toggle" id="theme-toggle">light</button>
                 <form method="post" action="/Login?handler=Logout" style="margin:0;">
                     <button type="submit" class="theme-toggle">Log out</button>

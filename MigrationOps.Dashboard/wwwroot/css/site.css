@@ -6,13 +6,13 @@
 :root {
   color-scheme: dark;
 
-  --surface-1: #1a1a19;
-  --page-plane: #0e0b0d;
+  --surface-1: #333433;
+  --page-plane: #161716;
   --surface-raised: #202020;
   --text-primary: #ffffff;
   --text-secondary: #c3c2b7;
   --text-muted: #898781;
-  --gridline: #372932ab;
+  --gridline: #29372cab;
   --border: rgba(255, 255, 255, 0.10);
   --accent: #3987e5;
 
@@ -48,9 +48,12 @@
   --brand-ops: #006300;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   height: 100%;
@@ -68,7 +71,9 @@ body {
   min-height: 100vh;
 }
 
-a { color: var(--accent); }
+a {
+  color: var(--accent);
+}
 
 .app-shell {
   max-width: 1100px;
@@ -77,17 +82,16 @@ a { color: var(--accent); }
 }
 
 .app-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 20px;
-    width: 100%;
-    margin-bottom: 24px;
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px 18px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  width: 100%;
+  margin-bottom: 24px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  padding: 16px 18px;
 }
 
 .app-header h1 {
@@ -99,7 +103,14 @@ a { color: var(--accent); }
 .brand-ops {
   font-family: var(--font-mono);
   color: var(--brand-ops);
+  font-size: 1.1em;
+  padding-left: 2px;
   margin-right: 4px;
+}
+
+.brand-chevron {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
 }
 
 .app-nav {
@@ -114,7 +125,8 @@ a { color: var(--accent); }
   text-decoration: none;
 }
 
-.app-nav a:hover, .app-nav a.active {
+.app-nav a:hover,
+.app-nav a.active {
   color: var(--text-primary);
 }
 
@@ -156,9 +168,17 @@ a { color: var(--accent); }
   line-height: 1;
 }
 
-.tile.tile-good .tile-value { color: var(--status-good); }
-.tile.tile-critical .tile-value { color: var(--status-critical); }
-.tile.tile-warning .tile-value { color: var(--status-warning); }
+.tile.tile-good .tile-value {
+  color: var(--status-good);
+}
+
+.tile.tile-critical .tile-value {
+  color: var(--status-critical);
+}
+
+.tile.tile-warning .tile-value {
+  color: var(--status-warning);
+}
 
 /* Cards / panels */
 .panel {
@@ -195,17 +215,37 @@ a { color: var(--accent); }
   flex: none;
 }
 
-.status-badge.status-success { color: var(--status-good); }
-.status-badge.status-success::before { background: var(--status-good); }
+.status-badge.status-success {
+  color: var(--status-good);
+}
 
-.status-badge.status-failed { color: var(--status-critical); }
-.status-badge.status-failed::before { background: var(--status-critical); }
+.status-badge.status-success::before {
+  background: var(--status-good);
+}
 
-.status-badge.status-pending { color: var(--status-warning); }
-.status-badge.status-pending::before { background: var(--status-warning); }
+.status-badge.status-failed {
+  color: var(--status-critical);
+}
 
-.status-badge.status-drift { color: var(--status-serious); }
-.status-badge.status-drift::before { background: var(--status-serious); }
+.status-badge.status-failed::before {
+  background: var(--status-critical);
+}
+
+.status-badge.status-pending {
+  color: var(--status-warning);
+}
+
+.status-badge.status-pending::before {
+  background: var(--status-warning);
+}
+
+.status-badge.status-drift {
+  color: var(--status-serious);
+}
+
+.status-badge.status-drift::before {
+  background: var(--status-serious);
+}
 
 /* Tables */
 table.data-table {
@@ -240,8 +280,13 @@ table.data-table tr:last-child td {
   font-size: 0.85em;
 }
 
-.text-muted { color: var(--text-muted); }
-.text-secondary { color: var(--text-secondary); }
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
 
 .error-text {
   color: var(--status-critical);
@@ -326,7 +371,35 @@ button.btn-primary {
   flex-wrap: wrap;
 }
 
-.filter-bar select, .filter-bar input {
+/* Dry-run report */
+.result-banner {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: var(--surface-1);
+}
+
+.result-banner.good {
+  color: var(--status-good);
+  border-color: var(--status-good);
+}
+
+.result-banner.bad {
+  color: var(--status-critical);
+  border-color: var(--status-critical);
+}
+
+.warning-note {
+  color: var(--status-serious);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.filter-bar select,
+.filter-bar input {
   background: var(--page-plane);
   color: var(--text-primary);
   border: 1px solid var(--border);
