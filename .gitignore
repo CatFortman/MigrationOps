@@ -402,3 +402,6 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Local developer settings (real connection strings) - see README
+appsettings.Development.json

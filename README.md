@@ -168,6 +168,20 @@ cd MigrationOps.ConsoleApp
 dotnet run
 ```
 
+Running with no arguments opens an interactive menu (choose dry-run / dry-run + verify / apply, then a target database). When stdin is redirected — e.g. from CI — a bare `dotnet run` performs a full apply, preserving the original behavior.
+
+#### CLI commands
+
+```
+dotnet run -- apply   [--db <name>]
+dotnet run -- dry-run [--db <name>] [--verify]
+```
+
+- **`apply`** runs the deploy pipeline (object scripts, then migrations, then deferred retries). `--db` limits it to one configured database.
+- **`dry-run`** previews what a deploy would do without changing anything: each file is reported as already applied, would apply, **CHANGED** (an applied migration whose file was edited — a real run would re-execute it), or a validation error (missing `-- Tags:`/`-- Checksum:`, object script without `CREATE OR ALTER`). Dry-run never halts early; it collects every problem, prints a per-database summary, and ends with `DRY-RUN SUCCEEDED`/`DRY-RUN FAILED`.
+- **`--verify`** additionally executes the pending scripts against the target database in one transaction per database — so later scripts can rely on earlier scripts' schema — and always rolls back. It needs a reachable database but never commits anything, including history rows.
+- The exit code is the success flag: `0` only when there are no CHANGED, validation-error, or verify-failed entries, making `dry-run` suitable as a CI gate.
+
 ## Dashboard
 
 **MigrationOps.Dashboard** is a Razor Pages web app that provides a read-only view of migration state. It reuses the same `MigrationOps.Core` logic as the console runner, so it shows the exact same per-database picture: applied migration history, pending files, and checksum drift.

@@ -12,5 +12,10 @@ namespace MigrationOps.Core.Models
         // True when the file has no "-- Checksum:" line yet (e.g. a migration being drafted
         // that hasn't gone through the pre-commit hook) — distinct from ordinary "pending".
         public bool ChecksumMissing { get; set; }
+
+        // Set when the file fails validation (no "-- Tags:" comment, or an object script
+        // without CREATE OR ALTER). A tagless file cannot be matched to a database, so it
+        // is reported regardless of the database filter; callers dedupe by filename.
+        public string? ValidationError { get; set; }
     }
 }

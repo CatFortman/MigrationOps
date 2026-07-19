@@ -105,19 +105,15 @@ namespace MigrationOps.Core.MigrationFramework.Services
         /// checksum/tags, no CREATE OR ALTER) still throw immediately, since a retry cannot fix them.
         /// </summary>
         /// <returns>The scripts that failed to apply and should be retried after migrations.</returns>
-        public List<string> ApplyDatabaseObjectScripts(string scriptsRootDirectory)
+        public List<string> ApplyDatabaseObjectScripts(string scriptsRootDirectory, string? onlyDatabase = null)
         {
-            var files = DatabaseObjectFolders
-                .Select(folder => Path.Combine(scriptsRootDirectory, folder))
-                .Where(Directory.Exists)
-                .SelectMany(folder => Directory.GetFiles(folder, "*.sql").OrderBy(f => Path.GetFileName(f)))
-                .ToList();
+            var files = ListDatabaseObjectFiles(scriptsRootDirectory);
 
             var deferred = new List<string>();
 
             foreach (var file in files)
             {
-                if (!ApplyScriptFile(file, ScriptKind.DatabaseObject, deferSqlFailures: true))
+                if (!ApplyScriptFile(file, ScriptKind.DatabaseObject, deferSqlFailures: true, onlyDatabase))
                 {
                     deferred.Add(file);
                 }
@@ -130,15 +126,15 @@ namespace MigrationOps.Core.MigrationFramework.Services
         /// Retries database object scripts deferred by <see cref="ApplyDatabaseObjectScripts"/>.
         /// By this point migrations have run, so any remaining failure is a real error and throws.
         /// </summary>
-        public void RetryDeferredScripts(List<string> deferredFiles)
+        public void RetryDeferredScripts(List<string> deferredFiles, string? onlyDatabase = null)
         {
             foreach (var file in deferredFiles)
             {
-                ApplyScriptFile(file, ScriptKind.DatabaseObject);
+                ApplyScriptFile(file, ScriptKind.DatabaseObject, deferSqlFailures: false, onlyDatabase);
             }
         }
 
-        public void ApplyMigrations(string directory)
+        public void ApplyMigrations(string directory, string? onlyDatabase = null)
         {
             var files = Directory.GetFiles(directory, "*.sql")
                                  .OrderBy(f => Path.GetFileName(f))
@@ -146,17 +142,21 @@ namespace MigrationOps.Core.MigrationFramework.Services
 
             foreach (var file in files)
             {
-                ApplyScriptFile(file, ScriptKind.Migration);
+                ApplyScriptFile(file, ScriptKind.Migration, deferSqlFailures: false, onlyDatabase);
             }
         }
 
-        private enum ScriptKind
+        // The four object folders, flattened in the order the apply pipeline runs them.
+        private static List<string> ListDatabaseObjectFiles(string scriptsRootDirectory)
         {
-            Migration,
-            DatabaseObject
+            return DatabaseObjectFolders
+                .Select(folder => Path.Combine(scriptsRootDirectory, folder))
+                .Where(Directory.Exists)
+                .SelectMany(folder => Directory.GetFiles(folder, "*.sql").OrderBy(f => Path.GetFileName(f)))
+                .ToList();
         }
 
-        private bool ApplyScriptFile(string file, ScriptKind kind, bool deferSqlFailures = false)
+        private bool ApplyScriptFile(string file, ScriptKind kind, bool deferSqlFailures = false, string? onlyDatabase = null)
         {
             string scriptName = Path.GetFileName(file);
             string kindLabel = kind == ScriptKind.Migration ? "migration" : "database object script";
@@ -183,6 +183,13 @@ namespace MigrationOps.Core.MigrationFramework.Services
 
             foreach (var tag in tags)
             {
+                // A file tagged only for other databases is skipped silently when a --db
+                // filter is active; the default (null) keeps every call site's behavior.
+                if (onlyDatabase != null && !tag.Equals(onlyDatabase, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 string currentDb;
                 string connectionString;
 
@@ -410,14 +417,30 @@ namespace MigrationOps.Core.MigrationFramework.Services
 
             foreach (var file in files)
             {
-                var tags = ParseTagsFromFile(file);
+                var fileName = Path.GetFileName(file);
+
+                List<string> tags;
+                try
+                {
+                    tags = ParseTagsFromFile(file);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // A tagless file can't be matched to any database, so it is reported
+                    // regardless of the filter instead of sinking the whole listing;
+                    // callers running per-database dedupe by filename.
+                    statuses.Add(new MigrationFileStatus
+                    {
+                        FileName = fileName,
+                        ValidationError = ex.Message
+                    });
+                    continue;
+                }
 
                 if (!ShouldApplyScript(tags, database))
                 {
                     continue;
                 }
-
-                var fileName = Path.GetFileName(file);
 
                 string currentChecksum;
                 try
@@ -453,6 +476,410 @@ namespace MigrationOps.Core.MigrationFramework.Services
             }
 
             return statuses;
+        }
+
+        public List<ScriptHistoryRecord> GetScriptObjectHistory(string connectionString)
+        {
+            EnsureHistoryTable(connectionString, ScriptKind.DatabaseObject);
+
+            var records = new List<ScriptHistoryRecord>();
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand(SqlStatements.SelectScriptHistory, connection))
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        records.Add(new ScriptHistoryRecord
+                        {
+                            ScriptId = reader.GetInt32(reader.GetOrdinal("ScriptId")),
+                            ScriptName = reader.GetString(reader.GetOrdinal("ScriptName")),
+                            AppliedOn = reader.GetDateTime(reader.GetOrdinal("AppliedOn")),
+                            Checksum = reader.IsDBNull(reader.GetOrdinal("Checksum")) ? null : reader.GetString(reader.GetOrdinal("Checksum"))
+                        });
+                    }
+                }
+            }
+
+            return records;
+        }
+
+        // Object-script counterpart of GetMigrationFileStatuses: same shape, but enumerates the
+        // four object folders in run order and additionally validates CREATE OR ALTER.
+        public List<MigrationFileStatus> GetScriptObjectFileStatuses(string scriptsRootDirectory, string database, List<ScriptHistoryRecord> history)
+        {
+            var statuses = new List<MigrationFileStatus>();
+
+            var latestChecksum = history
+                .GroupBy(h => h.ScriptName)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.AppliedOn).First().Checksum);
+
+            foreach (var file in ListDatabaseObjectFiles(scriptsRootDirectory))
+            {
+                var fileName = Path.GetFileName(file);
+
+                List<string> tags;
+                try
+                {
+                    tags = ParseTagsFromFile(file);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    statuses.Add(new MigrationFileStatus
+                    {
+                        FileName = fileName,
+                        ValidationError = ex.Message
+                    });
+                    continue;
+                }
+
+                if (!ShouldApplyScript(tags, database))
+                {
+                    continue;
+                }
+
+                var script = File.ReadAllText(file);
+
+                string currentChecksum;
+                try
+                {
+                    currentChecksum = ExtractChecksumFromScript(script);
+                }
+                catch (InvalidOperationException)
+                {
+                    statuses.Add(new MigrationFileStatus
+                    {
+                        FileName = fileName,
+                        Tags = tags,
+                        ChecksumMissing = true
+                    });
+                    continue;
+                }
+
+                try
+                {
+                    EnsureCreateOrAlterStatement(script, fileName);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    statuses.Add(new MigrationFileStatus
+                    {
+                        FileName = fileName,
+                        Tags = tags,
+                        CurrentChecksum = currentChecksum,
+                        ValidationError = ex.Message
+                    });
+                    continue;
+                }
+
+                var isApplied = history.Any(h => h.ScriptName == fileName && h.Checksum == currentChecksum);
+                var hasRecordedChecksum = latestChecksum.TryGetValue(fileName, out var recordedChecksum);
+
+                statuses.Add(new MigrationFileStatus
+                {
+                    FileName = fileName,
+                    Tags = tags,
+                    IsApplied = isApplied,
+                    HasDrift = hasRecordedChecksum && recordedChecksum != currentChecksum,
+                    RecordedChecksum = hasRecordedChecksum ? recordedChecksum : null,
+                    CurrentChecksum = currentChecksum
+                });
+            }
+
+            return statuses;
+        }
+
+        /// <summary>
+        /// Builds a read-only preview of what a real run would do against each target database:
+        /// object scripts first, then migrations, classified per file. Never halts on a bad file
+        /// or an unreachable database — problems become entries in the plan.
+        /// </summary>
+        public DryRunPlan BuildDryRunPlan(string scriptsRootDirectory, string migrationsDirectory, IReadOnlyList<string> targetDatabases)
+        {
+            var plan = new DryRunPlan { TargetDatabases = targetDatabases.ToList() };
+
+            // Tagless files surface once per classifier call; report each only once.
+            var unresolvedReported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var database in targetDatabases)
+            {
+                List<MigrationHistoryRecord> migrationHistory;
+                List<ScriptHistoryRecord> scriptHistory;
+
+                try
+                {
+                    var connectionString = GetConnectionString(database);
+                    migrationHistory = GetMigrationHistory(connectionString);
+                    scriptHistory = GetScriptObjectHistory(connectionString);
+                }
+                catch (Exception ex)
+                {
+                    plan.Entries.Add(new PlanEntry
+                    {
+                        FileName = "(connection)",
+                        Database = database,
+                        Status = PlanEntryStatus.ValidationError,
+                        Detail = $"cannot read history: {ex.Message}"
+                    });
+                    continue;
+                }
+
+                foreach (var status in GetScriptObjectFileStatuses(scriptsRootDirectory, database, scriptHistory))
+                {
+                    AddPlanEntry(plan, status, ScriptKind.DatabaseObject, database,
+                        FindDatabaseObjectFilePath(scriptsRootDirectory, status.FileName), unresolvedReported);
+                }
+
+                foreach (var status in GetMigrationFileStatuses(migrationsDirectory, database, migrationHistory))
+                {
+                    AddPlanEntry(plan, status, ScriptKind.Migration, database,
+                        Path.Combine(migrationsDirectory, status.FileName), unresolvedReported);
+                }
+            }
+
+            return plan;
+        }
+
+        private static void AddPlanEntry(DryRunPlan plan, MigrationFileStatus status, ScriptKind kind, string database, string filePath, HashSet<string> unresolvedReported)
+        {
+            var unresolved = status.ValidationError != null && status.Tags.Count == 0;
+            if (unresolved && !unresolvedReported.Add(status.FileName))
+            {
+                return;
+            }
+
+            var entry = new PlanEntry
+            {
+                FileName = status.FileName,
+                FilePath = filePath,
+                Kind = kind,
+                Database = unresolved ? "(unresolved)" : database,
+                RecordedChecksum = status.RecordedChecksum,
+                CurrentChecksum = string.IsNullOrEmpty(status.CurrentChecksum) ? null : status.CurrentChecksum
+            };
+
+            if (status.ValidationError != null)
+            {
+                entry.Status = PlanEntryStatus.ValidationError;
+                entry.Detail = status.ValidationError;
+            }
+            else if (status.ChecksumMissing)
+            {
+                entry.Status = PlanEntryStatus.ValidationError;
+                entry.Detail = "no '-- Checksum:' header (commit the file so the pre-commit hook adds one)";
+            }
+            else if (status.HasDrift && kind == ScriptKind.Migration)
+            {
+                entry.Status = PlanEntryStatus.Changed;
+                entry.Detail = $"recorded {ShortChecksum(status.RecordedChecksum)} but file is {ShortChecksum(status.CurrentChecksum)}";
+            }
+            else if (status.IsApplied)
+            {
+                entry.Status = PlanEntryStatus.AlreadyApplied;
+            }
+            else
+            {
+                // Includes drifted object scripts: editing a proc/view so it re-applies is the
+                // designed workflow, unlike editing an applied migration.
+                entry.Status = PlanEntryStatus.WouldApply;
+                entry.Detail = status.HasDrift ? "would apply (updated)" : "would apply (new)";
+            }
+
+            if (entry.Status == PlanEntryStatus.WouldApply || entry.Status == PlanEntryStatus.Changed)
+            {
+                entry.ScriptText = File.ReadAllText(filePath);
+            }
+
+            plan.Entries.Add(entry);
+        }
+
+        private static string ShortChecksum(string? checksum)
+        {
+            return string.IsNullOrEmpty(checksum) ? "(none)" : checksum.Length <= 8 ? checksum : checksum.Substring(0, 8) + "...";
+        }
+
+        private static string FindDatabaseObjectFilePath(string scriptsRootDirectory, string fileName)
+        {
+            return DatabaseObjectFolders
+                .Select(folder => Path.Combine(scriptsRootDirectory, folder, fileName))
+                .FirstOrDefault(File.Exists) ?? fileName;
+        }
+
+        /// <summary>
+        /// Executes each database's pending entries (WouldApply + Changed) inside one transaction
+        /// per database — so later scripts can see earlier scripts' schema — and always rolls it
+        /// back. Proves the SQL works without committing anything; history inserts are not replayed.
+        /// Results land in each entry's VerifyStatus/VerifyDetail.
+        /// </summary>
+        public void VerifyPlan(DryRunPlan plan)
+        {
+            foreach (var database in plan.TargetDatabases)
+            {
+                var pending = plan.Entries
+                    .Where(e => e.Database.Equals(database, StringComparison.OrdinalIgnoreCase)
+                             && (e.Status == PlanEntryStatus.WouldApply || e.Status == PlanEntryStatus.Changed))
+                    .ToList();
+
+                if (pending.Count == 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    VerifyDatabase(GetConnectionString(database), pending);
+                }
+                catch (Exception ex)
+                {
+                    // Couldn't even get a connection/transaction: first pending entry carries
+                    // the error, the rest are unverified.
+                    pending[0].VerifyStatus = PlanEntryStatus.VerifyFailed;
+                    pending[0].VerifyDetail = ex.Message;
+                    foreach (var entry in pending.Skip(1))
+                    {
+                        entry.VerifyStatus = PlanEntryStatus.NotVerified;
+                    }
+                }
+            }
+        }
+
+        private void VerifyDatabase(string connectionString, List<PlanEntry> pending)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        var objectEntries = pending.Where(e => e.Kind == ScriptKind.DatabaseObject).ToList();
+                        var migrationEntries = pending.Where(e => e.Kind == ScriptKind.Migration).ToList();
+                        var deferred = new List<PlanEntry>();
+                        var stopped = false;
+
+                        // Phase 1: object scripts, mirroring the real run's defer-on-failure.
+                        foreach (var entry in objectEntries)
+                        {
+                            if (stopped)
+                            {
+                                MarkNotVerified(entry);
+                                continue;
+                            }
+
+                            try
+                            {
+                                ExecuteVerify(entry, connection, transaction);
+                                entry.VerifyStatus = PlanEntryStatus.VerifyPassed;
+                            }
+                            catch (Exception ex)
+                            {
+                                if (IsTransactionDoomed(connection, transaction))
+                                {
+                                    entry.VerifyStatus = PlanEntryStatus.VerifyFailed;
+                                    entry.VerifyDetail = ex.Message;
+                                    stopped = true;
+                                }
+                                else
+                                {
+                                    deferred.Add(entry);
+                                }
+                            }
+                        }
+
+                        // Phase 2: migrations — the real run is fail-fast here, and the
+                        // transaction may be doomed, so stop on the first failure.
+                        foreach (var entry in migrationEntries)
+                        {
+                            if (stopped)
+                            {
+                                MarkNotVerified(entry);
+                                continue;
+                            }
+
+                            try
+                            {
+                                ExecuteVerify(entry, connection, transaction);
+                                entry.VerifyStatus = PlanEntryStatus.VerifyPassed;
+                            }
+                            catch (Exception ex)
+                            {
+                                entry.VerifyStatus = PlanEntryStatus.VerifyFailed;
+                                entry.VerifyDetail = ex.Message;
+                                stopped = true;
+                            }
+                        }
+
+                        // Phase 3: retry deferred object scripts now that migrations ran.
+                        foreach (var entry in deferred)
+                        {
+                            if (stopped)
+                            {
+                                MarkNotVerified(entry);
+                                continue;
+                            }
+
+                            try
+                            {
+                                ExecuteVerify(entry, connection, transaction);
+                                entry.VerifyStatus = PlanEntryStatus.VerifyPassed;
+                            }
+                            catch (Exception ex)
+                            {
+                                entry.VerifyStatus = PlanEntryStatus.VerifyFailed;
+                                entry.VerifyDetail = ex.Message;
+                                stopped = true;
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        // Rolling back a doomed transaction throws but the work is already
+                        // undone server-side — never let that mask the collected results.
+                        try
+                        {
+                            transaction.Rollback();
+                        }
+                        catch
+                        {
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void MarkNotVerified(PlanEntry entry)
+        {
+            entry.VerifyStatus = PlanEntryStatus.NotVerified;
+            entry.VerifyDetail = "not verified - earlier failure";
+        }
+
+        private static void ExecuteVerify(PlanEntry entry, SqlConnection connection, SqlTransaction transaction)
+        {
+            var script = entry.ScriptText ?? File.ReadAllText(entry.FilePath);
+
+            using (var command = new SqlCommand(script, connection, transaction))
+            {
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private static bool IsTransactionDoomed(SqlConnection connection, SqlTransaction transaction)
+        {
+            try
+            {
+                using (var command = new SqlCommand("SELECT XACT_STATE()", connection, transaction))
+                {
+                    return Convert.ToInt32(command.ExecuteScalar()) == -1;
+                }
+            }
+            catch
+            {
+                // Can't even query the transaction state — treat it as unusable.
+                return true;
+            }
         }
 
         public string ExtractChecksumFromScript(string script)

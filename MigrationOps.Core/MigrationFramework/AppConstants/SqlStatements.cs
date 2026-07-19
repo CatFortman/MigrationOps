@@ -68,5 +68,11 @@
            FROM __ScriptHistory
            WHERE ScriptName = @ScriptName AND Checksum = @Checksum";
 
+        // SQL for reading the full database object script history, most recent first.
+        public static readonly string SelectScriptHistory = @"
+           SELECT ScriptId, ScriptName, AppliedOn, Checksum
+           FROM __ScriptHistory
+           ORDER BY AppliedOn DESC";
+
     }
 }
