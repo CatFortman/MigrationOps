@@ -26,11 +26,17 @@
                     <option value="@db" selected="@(string.Equals(db, Model.Database, StringComparison.OrdinalIgnoreCase))">@db</option>
                 }
             </select>
-            <button type="submit" class="theme-toggle">Run dry-run</button>
+            <button type="submit" class="theme-toggle"
+                    title="Read-only report: classifies every script as already applied, would apply, CHANGED, or error by comparing files against the history tables. Never executes your SQL.">
+                Run dry-run
+            </button>
         </form>
-        <form method="post" asp-page-handler="Verify" style="margin:0;">
+        <form method="post" asp-page-handler="Verify" class="filter-bar" style="margin:0;">
             <input type="hidden" name="database" value="@Model.Database" />
-            <button type="submit" class="theme-toggle">Run with verify (executes + rolls back)</button>
+            <button type="submit" class="theme-toggle"
+                    title="Same report, but also executes the pending scripts in one transaction per database and always rolls back — proves the SQL runs cleanly without committing anything. Takes real locks while it runs.">
+                Run with verify
+            </button>
         </form>
     </div>
 </div>
