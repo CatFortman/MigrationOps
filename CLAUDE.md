@@ -3,8 +3,9 @@
 SQL Server schema versioning tool. Migrations are plain .sql files executed in
 filename order by the ConsoleApp. Solution has three projects:
 `MigrationOps.ConsoleApp` (runner), `MigrationOps.Core` (framework), and
-`MigrationOps.Dashboard` (read-only Razor Pages web UI over the same Core
-logic).
+`MigrationOps.Dashboard` (Razor Pages web UI over the same Core logic;
+read-only except the dry-run verify action, which executes pending scripts in
+a rolled-back transaction).
 
 ## Build and run
 
@@ -37,6 +38,10 @@ the `Migrations` folder are resolved relative to the working directory, so
   database (`DashboardStore:ConnectionString`) for login accounts; the app
   creates its `__DashboardUsers` table but never the database itself. First
   account is bootstrapped at `/Register`, which closes once any user exists.
+  `/DryRun` is the web equivalent of the console `dry-run` command (same
+  `BuildDryRunPlan`/`VerifyPlan` Core calls); the object-scripts root defaults
+  to the `Scripts` folder next to `MigrationsRoot`, overridable via a
+  `ScriptsRoot` setting in `appsettings.json`.
 
 ## Migration files
 

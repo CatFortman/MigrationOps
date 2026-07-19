@@ -6,13 +6,13 @@
 :root {
   color-scheme: dark;
 
-  --surface-1: #1a1a19;
-  --page-plane: #0e0b0d;
+  --surface-1: #333433;
+  --page-plane: #161716;
   --surface-raised: #202020;
   --text-primary: #ffffff;
   --text-secondary: #c3c2b7;
   --text-muted: #898781;
-  --gridline: #372932ab;
+  --gridline: #29372cab;
   --border: rgba(255, 255, 255, 0.10);
   --accent: #3987e5;
 
@@ -91,7 +91,6 @@ a {
   margin-bottom: 24px;
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 10px;
   padding: 16px 18px;
 }
 
@@ -370,6 +369,33 @@ button.btn-primary {
   gap: 10px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+}
+
+/* Dry-run report */
+.result-banner {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: var(--surface-1);
+}
+
+.result-banner.good {
+  color: var(--status-good);
+  border-color: var(--status-good);
+}
+
+.result-banner.bad {
+  color: var(--status-critical);
+  border-color: var(--status-critical);
+}
+
+.warning-note {
+  color: var(--status-serious);
+  font-size: 0.8rem;
+  margin-top: 4px;
 }
 
 .filter-bar select,
