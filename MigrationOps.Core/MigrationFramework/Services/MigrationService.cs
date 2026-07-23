@@ -206,6 +206,21 @@ namespace MigrationOps.Core.MigrationFramework.Services
 
                 EnsureHistoryTable(connectionString, kind);
 
+                // Migrations are immutable once applied: HasBeenApplied only matches on
+                // (name, checksum), so an edited file would otherwise look "never applied"
+                // and get re-executed. Object scripts are exempt - re-applying an edited
+                // proc/view is the designed workflow.
+                if (kind == ScriptKind.Migration)
+                {
+                    var recordedChecksum = GetLatestSuccessfulMigrationChecksum(connectionString, scriptName);
+                    var editedError = DetectEditedMigration(scriptName, recordedChecksum, checksum);
+
+                    if (editedError != null)
+                    {
+                        throw new InvalidOperationException(editedError);
+                    }
+                }
+
                 if (HasBeenApplied(connectionString, scriptName, checksum, kind))
                 {
                     Console.WriteLine($"Skipping {scriptName} as it has already been applied to {currentDb}");
@@ -333,6 +348,37 @@ namespace MigrationOps.Core.MigrationFramework.Services
                 var command = new SqlCommand(sql, connection);
                 command.ExecuteNonQuery();
             }
+        }
+
+        private string? GetLatestSuccessfulMigrationChecksum(string connectionString, string scriptName)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                var command = new SqlCommand(SqlStatements.SelectLatestSuccessfulMigrationChecksum, connection);
+                command.Parameters.AddWithValue("@MigrationName", scriptName);
+                var result = command.ExecuteScalar();
+                return result == null || result == DBNull.Value ? null : (string)result;
+            }
+        }
+
+        /// <summary>
+        /// Pure decision function behind the "editing an applied migration is forbidden" guard:
+        /// given the checksum of the migration's last successful apply (null if it has never
+        /// successfully applied) and the checksum of the file on disk now, returns a descriptive
+        /// error if they've diverged, or null if it's safe to proceed (never applied, or applied
+        /// with this exact checksum already).
+        /// </summary>
+        internal static string? DetectEditedMigration(string scriptName, string? recordedChecksum, string currentChecksum)
+        {
+            if (recordedChecksum == null || recordedChecksum == currentChecksum)
+            {
+                return null;
+            }
+
+            return $"Migration '{scriptName}' was already applied with checksum {ShortChecksum(recordedChecksum)} " +
+                   $"but the file now has checksum {ShortChecksum(currentChecksum)}. Migrations are immutable once " +
+                   "applied - create a new migration instead of editing this one.";
         }
 
         private bool HasBeenApplied(string connectionString, string scriptName, string checksum, ScriptKind kind)

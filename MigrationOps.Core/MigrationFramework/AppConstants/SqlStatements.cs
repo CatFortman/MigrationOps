@@ -39,6 +39,16 @@
            FROM __MigrationHistory
            WHERE MigrationName = @MigrationName AND Checksum = @Checksum AND Success = 1";
 
+        // SQL for finding the checksum of the most recent *successful* apply of a migration,
+        // by name alone (ignoring checksum) - used to detect a migration file edited after
+        // it was already applied, since HasBeenApplied's (name, checksum) match can't tell
+        // "never applied" apart from "applied under a different checksum".
+        public static readonly string SelectLatestSuccessfulMigrationChecksum = @"
+           SELECT TOP 1 Checksum
+           FROM __MigrationHistory
+           WHERE MigrationName = @MigrationName AND Success = 1
+           ORDER BY AppliedOn DESC";
+
         // SQL for reading the full migration history, most recent first.
         public static readonly string SelectMigrationHistory = @"
            SELECT MigrationId, MigrationName, AppliedOn, Checksum, Success, ErrorMessage, DurationMs
