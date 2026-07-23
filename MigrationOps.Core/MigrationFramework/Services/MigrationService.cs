@@ -642,7 +642,9 @@ namespace MigrationOps.Core.MigrationFramework.Services
             return plan;
         }
 
-        private static void AddPlanEntry(DryRunPlan plan, MigrationFileStatus status, ScriptKind kind, string database, string filePath, HashSet<string> unresolvedReported)
+        // internal (not private) so MigrationOps.Core.Tests can exercise the classification
+        // logic directly, without needing a live database connection.
+        internal static void AddPlanEntry(DryRunPlan plan, MigrationFileStatus status, ScriptKind kind, string database, string filePath, HashSet<string> unresolvedReported)
         {
             var unresolved = status.ValidationError != null && status.Tags.Count == 0;
             if (unresolved && !unresolvedReported.Add(status.FileName))
@@ -902,7 +904,8 @@ namespace MigrationOps.Core.MigrationFramework.Services
         /// This enforces that the first executable statement (after the checksum/tags header
         /// comments) is a CREATE OR ALTER, rather than a plain CREATE that fails on redeploy.
         /// </summary>
-        private static void EnsureCreateOrAlterStatement(string script, string scriptName)
+        // internal (not private) so MigrationOps.Core.Tests can exercise it directly.
+        internal static void EnsureCreateOrAlterStatement(string script, string scriptName)
         {
             var lines = script.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 
