@@ -1,0 +1,69 @@
+using MigrationOps.Core.MigrationFramework.Services;
+
+namespace MigrationOps.Core.Tests
+{
+    public class EnsureCreateOrAlterStatementTests
+    {
+        [Fact]
+        public void AllowsCreateOrAlterAfterHeaderComments()
+        {
+            var script = "-- Tags: Db1\n-- Checksum: abc\nCREATE OR ALTER PROCEDURE dbo.Foo AS SELECT 1;";
+
+            var exception = Record.Exception(() => MigrationService.EnsureCreateOrAlterStatement(script, "Foo.sql"));
+
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void AllowsBlankLinesBeforeTheStatement()
+        {
+            var script = "-- Tags: Db1\n\n\nCREATE OR ALTER VIEW dbo.V AS SELECT 1;";
+
+            var exception = Record.Exception(() => MigrationService.EnsureCreateOrAlterStatement(script, "V.sql"));
+
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void IsCaseInsensitive()
+        {
+            var script = "-- Tags: Db1\ncreate or alter function dbo.F() returns int as begin return 1 end";
+
+            var exception = Record.Exception(() => MigrationService.EnsureCreateOrAlterStatement(script, "F.sql"));
+
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void ThrowsWhenFirstStatementIsPlainCreate()
+        {
+            var script = "-- Tags: Db1\nCREATE PROCEDURE dbo.Foo AS SELECT 1;";
+
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => MigrationService.EnsureCreateOrAlterStatement(script, "Foo.sql"));
+
+            Assert.Contains("Foo.sql", ex.Message);
+            Assert.Contains("CREATE OR ALTER", ex.Message);
+        }
+
+        [Fact]
+        public void ThrowsForEmptyScript()
+        {
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => MigrationService.EnsureCreateOrAlterStatement("", "Empty.sql"));
+
+            Assert.Contains("empty", ex.Message);
+        }
+
+        [Fact]
+        public void ThrowsWhenScriptIsOnlyHeaderComments()
+        {
+            var script = "-- Tags: Db1\n-- Checksum: abc\n-- just a trailing comment, no statement";
+
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => MigrationService.EnsureCreateOrAlterStatement(script, "OnlyComments.sql"));
+
+            Assert.Contains("empty", ex.Message);
+        }
+    }
+}
