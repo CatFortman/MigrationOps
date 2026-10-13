@@ -209,6 +209,26 @@ Every page requires login. On a fresh install:
 
 Registration is a one-time bootstrap, not open signup: once any account exists, `/Register` permanently redirects to `/Login`. To add another user later, insert a row into `__DashboardUsers` manually, or clear the table to re-open registration.
 
+## Working on this repo with Claude Code
+
+The repo is set up for AI-assisted development:
+
+| File | Purpose |
+|---|---|
+| `CLAUDE.md` | Build and run commands, migration conventions, working-directory gotchas |
+| `MigrationOps.ConsoleApp/Migrations/CLAUDE.md` | Rules that apply when working in the migrations folder |
+| `.claude/rules/migrations.md` | Path-scoped rule loaded only when editing migration `.sql` files |
+| `.claude/skills/new-migration/` | `/new-migration`: scaffolds a correctly named migration in the right database folder |
+| `.claude/skills/verify/` | `/verify`: builds and runs the tool end to end against a throwaway LocalDB database |
+
+Planned: a read-only `migration-review` skill and a `/validate-db` command (#56), automated PR review in CI with `claude -p` (#57 to #59), and [SqlServer.Mcp](https://github.com/CatFortman/SqlServer.Mcp) registered in `.mcp.json` so Claude inspects the real schema before writing DDL (#6).
+
+## Related projects
+
+- [SqlServer.Mcp](https://github.com/CatFortman/SqlServer.Mcp): read-only SQL Server diagnostics for AI clients. Its `recent_migrations` tool reads this project's `__MigrationHistory` and `__ScriptHistory` tables.
+- [SqlServer.OpsAgent](https://github.com/CatFortman/SqlServer.OpsAgent): incident triage agent. Uses migration history to answer "what changed before this broke?", and can propose `dry-run` then `apply` as a gated, human-approved fix.
+- [SqlServer.EngineeringToolkit](https://github.com/CatFortman/SqlServer.EngineeringToolkit): companion library of operational SQL scripts.
+
 ## Contributing
 I welcome contributions! Please fork the repository and submit a pull request for any enhancements or bug fixes.
 
