@@ -10,7 +10,7 @@ It combines concepts from Entity Framework migrations and SQL source control too
 - **Content-based Checksums**: Each script's integrity checksum is computed from its own content at apply/plan time — no header to maintain or trust.
 - **Migration Management**: Easily handle database migrations with a structured approach, using timestamped filenames to ensure proper execution order.
 - **`GO` Batch Separators**: Scripts are split on `GO` lines the way SSMS does, so statements that must start their own batch work — while the whole file still applies in one transaction.
-- **Folder-per-database routing**: A script's target database is its own subfolder (`Migrations/Db1/`, `Scripts/Db1/...`) — no tagging comment to keep in sync, and a stray folder name that doesn't match a configured database is caught as a validation error instead of silently never running.
+- **Folder-per-database routing**: A script's target database is its own subfolder (`Migrations/Db1/`, `Scripts/Db1/...`)
 
 ## Installation
 
@@ -26,7 +26,7 @@ To get started, clone the project repository to your local machine:
 git clone <repository-url>
 ```
 
-Checksums are computed, not stored: `ScriptParser.ComputeChecksum` computes each script's SHA-256 from its own content at apply/plan time, so there's nothing to insert, update, or trust from a header.
+Checksums are computed, not stored: `ScriptParser.ComputeChecksum` computes each script's SHA-256 from its own content at apply/plan time, so there's nothing to insert, update, or trust external to the script.
 
 ## Usage
 
